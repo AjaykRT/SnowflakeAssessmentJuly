@@ -33,15 +33,15 @@ User Stage
 CREATE OR REPLACE STAGE user_stage;
 COPY INTO my_table 
 FROM @user_stage/data_files 
-FILE_FORMAT = ‘csv_format’ / ‘Json_format’ ;
+FILE_FORMAT = (TYPE = CSV FIELD_OPTIONALLY_ENCLOSED_BY = '"' SKIP_HEADER = 1);
 For Account Stage
 COPY INTO my_table 
 FROM @ACCOUNT_STAGE/data_files 
-FILE_FORMAT = ‘csv_format’ / ‘Json_format’ ;
+FILE_FORMAT = (TYPE = CSV FIELD_OPTIONALLY_ENCLOSED_BY = '"' SKIP_HEADER = 1);
 For Share Stage
 COPY INTO my_table 
 FROM @share_stage/data_files 
-FILE_FORMAT = ‘csv_format’ / ‘Json_format’ ;
+FILE_FORMAT = (TYPE = CSV FIELD_OPTIONALLY_ENCLOSED_BY = '"' SKIP_HEADER = 1);
 
 
 
@@ -113,10 +113,10 @@ Ans : SELECT car_data:dealership::string AS dealership_data
 FROM car_sales;
 
 9. A medium size warehouse runs in Auto-scale mode for 3 hours with a resize from Medium (4 servers per cluster) to Large (8 servers per cluster). Warehouse is resized from Medium to Large at 1:30 hours, Cluster 1 runs continuously, Cluster 2 runs continuously for the 2nd and 3rd hours, Cluster 3 runs for 15 minutes in the 3rd hour. How many total credits will be consumed
-Ans : 9 Credits
+Ans : 36 Credits
 
 10. What is the command to check status of snowpipe?
-Ans : Show Pipes;
+Ans : SELECT SYSTEM$PIPE_STATUS <PIPE_NAME>;
 
 11. What are the different methods of getting/accessing/querying data from Time travel , Assume the table name is 'CUSTOMER' and please write the command for each method.
 Ans : 1.By Using Timestamp 
@@ -129,7 +129,7 @@ FROM CUSTOMER
 Before (TIMESTAMP = '2024-07-15 12:00:00');
 
 2.By Using Query ID
-SELECT * FROM CUSTOMER AT (Query ID = '12345abcd-1234-abcd-1234-abcdef123456');
+SELECT * FROM CUSTOMER BEFORE (Query ID = '12345abcd-1234-abcd-1234-abcdef123456');
 
 12. If comma is defined as column delimiter in file "employee.csv" and if we get extra comma in the data how to handle this scenario?
 Ans : By Specifying the file format exactly as CSV and using NULL IF
