@@ -1,0 +1,162 @@
+Assgn2
+
+create database Snow2;
+
+--uploading sample data from snowflake to s3
+--Create a sample snowflake table as below,
+
+CREATE OR REPLACE TRANSIENT TABLE Snow2.PUBLIC.CUSTOMER_TEST
+AS
+SELECT * FROM 
+"SNOWFLAKE_SAMPLE_DATA"."TPCDS_SF100TCL"."CUSTOMER";
+
+Create or replace transient table CUSTOMER_SNOWFLAKE_TABLE
+AS
+SELECT * FROM CUSTOMER_TEST limit 10000
+
+CREATE OR REPLACE STORAGE INTEGRATION s3_csv_int
+TYPE = EXTERNAL_STAGE
+STORAGE_PROVIDER = S3
+ENABLED = TRUE
+STORAGE_AWS_ROLE_ARN ='arn:aws:iam::590183994754:role/Snow'
+STORAGE_ALLOWED_LOCATIONS =('s3://snowaj/csv/');
+
+create or replace file format my_csv_unload_format
+type = csv field_delimiter = ',' 
+skip_header = 1 null_if = ('NULL', 'null') empty_field_as_null = true compression = gzip;
+
+desc INTEGRATION s3_csv_int;
+ 
+ 
+--Create external stage
+CREATE OR REPLACE STAGE my_s3_ext_stage
+STORAGE_INTEGRATION = s3_csv_int
+URL = 's3://snowaj/csv/';
+
+
+--Copy command
+
+COPY INTO @Snow2.PUBLIC.my_s3_ext_stage/Customer_data/
+
+from
+
+Snow2.PUBLIC.CUSTOMER_TEST;
+
+SELECT $1 C_CUSTOMER_SK,
+$2 C_CUSTOMER_ID ,
+$3 C_CURRENT_CDEMO_SK ,
+$4 C_CURRENT_HDEMO_SK ,
+$5 C_CURRENT_ADDR_SK,
+$6 C_FIRST_SHIPTO_DATE_SK ,
+$7 C_FIRST_SALES_DATE_SK ,
+$8 C_SALUTATION ,
+$9 C_FIRST_NAME ,
+$10 C_LAST_NAME,
+$11 C_PREFERRED_CUST_FLAG ,
+$12 C_BIRTH_DAY ,
+$13 C_BIRTH_MONTH ,
+$14 C_BIRTH_YEAR,
+$16 C_LOGIN ,
+$17 C_EMAIL_ADDRESS ,
+$18 C_LAST_REVIEW_DATE
+FROM @Snow2.PUBLIC.my_s3_ext_stage/Customer_data/. ---replace it with new stage 
+(file_format => Snow2.PUBLIC.my_csv_unload_format)
+
+
+--Filter data directly from s3,
+SELECT $1 C_CUSTOMER_SK,
+$2 C_CUSTOMER_ID ,
+$3 C_CURRENT_CDEMO_SK ,
+$4 C_CURRENT_HDEMO_SK ,
+$5 C_CURRENT_ADDR_SK,
+$6 C_FIRST_SHIPTO_DATE_SK ,
+$7 C_FIRST_SALES_DATE_SK ,
+$8 C_SALUTATION ,
+$9 C_FIRST_NAME ,
+$10 C_LAST_NAME,
+$11 C_PREFERRED_CUST_FLAG ,
+$12 C_BIRTH_DAY ,
+$13 C_BIRTH_MONTH ,
+$14 C_BIRTH_YEAR,
+$16 C_LOGIN ,
+$17 C_EMAIL_ADDRESS ,
+$18 C_LAST_REVIEW_DATE
+FROM @Snow2.PUBLIC.my_s3_ext_stage/Customer_data/
+(file_format => Snow2.PUBLIC.my_csv_unload_format)
+WHERE C_CUSTOMER_SK ='64596949'
+
+--Execute group by,
+SELECT $9 C_FIRST_NAME,$10 C_LAST_NAME,COUNT(*)
+FROM @Snow2.PUBLIC.my_s3_ext_stage/Customer_data/
+(file_format => Snow2.PUBLIC.my_csv_unload_format)
+GROUP BY $9,$10
+
+--CREATE VIEW OVER S3 DATA
+CREATE OR REPLACE VIEW CUSTOMER_DATA
+AS
+SELECT $1 C_CUSTOMER_SK,
+$2 C_CUSTOMER_ID ,
+$3 C_CURRENT_CDEMO_SK ,
+$4 C_CURRENT_HDEMO_SK ,
+$5 C_CURRENT_ADDR_SK,
+$6 C_FIRST_SHIPTO_DATE_SK ,
+$7 C_FIRST_SALES_DATE_SK ,
+$8 C_SALUTATION ,
+$9 C_FIRST_NAME ,
+$10 C_LAST_NAME,
+$11 C_PREFERRED_CUST_FLAG ,
+$12 C_BIRTH_DAY ,
+$13 C_BIRTH_MONTH ,
+$14 C_BIRTH_YEAR,
+$16 C_LOGIN ,
+$17 C_EMAIL_ADDRESS ,
+$18 C_LAST_REVIEW_DATE
+FROM @Snow2.PUBLIC.my_s3_ext_stage/Customer_data/
+(file_format => Snow2.PUBLIC.my_csv_unload_format)
+
+--Query data directly on view,
+SELECT * FROM CUSTOMER_DATA;
+
+Create or replace transient table CUSTOMER_SNOWFLAKE_TABLE
+AS
+SELECT * FROM CUSTOMER_TEST limit 10000
+
+SELECT B.* 
+FROM CUSTOMER_SNOWFLAKE_TABLE B
+LEFT OUTER JOIN 
+CUSTOMER_DATA A
+ON
+A.C_CUSTOMER_SK = B.C_CUSTOMER_SK
+
+COPY INTO @Snow2.PUBLIC.my_s3_ext_stage/Customer_joined_data/
+from(
+SELECT B.* 
+FROM CUSTOMER_SNOWFLAKE_TABLE B
+LEFT OUTER JOIN 
+CUSTOMER_DATA A
+ON
+A.C_CUSTOMER_SK = B.C_CUSTOMER_SK
+)
+
+---What is the disadvantage of using this approach ?
+Ans - Performance Impact - a)If the view contains complex joins, aggregations, or other computationally intensive operations, querying it can be slow. Every time the view is queried, these operations are performed on-the-fly, which can impact performance.
+b)If the underlying tables contain a large amount of data, querying the view can result in significant processing overhead and long execution times.
+---Can you see partitions being scanned in the backend ?
+Ans - NO, we can not see the partitions.
+--we successfully joined data in s3 with snowflake table. It may look simple but this 
+approach has lot of potential. Can you mention few below
+Ans - a)Leverage S3's virtually unlimited storage capacity to store large volumes of data without worrying about scaling limitations
+b)Utilize Snowflake's scalable compute resources to handle complex queries and large data joins efficiently.
+--How many partitions got scanned from snowflake table
+Ans - 356
+--ADVANTAGES AND DISADVANTAGES
+Ans - ADVANTAGES :
+a)Scalability
+b)Cost Efficiency
+c)Flexibility and Compatibility
+DISADVANTAGES
+a)Performance Overhead
+b)Resource Management
+c)Security and Compliance
+
+
